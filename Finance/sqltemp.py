@@ -5,8 +5,10 @@ DATABASE = "portfolio.db"
 conn = sqlite3.connect(DATABASE)
 cursor = conn.cursor()
 cursor.execute("""
-    ALTER TABLE strategy3
-    ADD current FLOAT
+               DELETE FROM strategy
+""")
+cursor.execute("""
+               DELETE FROM portfolio
 """)
 
 # for i in range(128):

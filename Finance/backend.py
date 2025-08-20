@@ -5,30 +5,7 @@ import sqlite3
 
 app = FastAPI(title="Portfolio Backend (SQLite3)")
 
-user_id = 0
-
 DATABASE = "portfolio.db"
-
-# Ensure the table exists
-def init_db():
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS portfolio (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            symbol TEXT NOT NULL,
-            quantity REAL NOT NULL,
-            avg_cost REAL NOT NULL,
-            sector TEXT,
-            asset_class TEXT,
-            current REAL DEFAULT 0,
-            user_id INTEGER NOT NULL
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-init_db()
 
 # Pydantic model for validation
 class PortfolioItem(BaseModel):
@@ -68,7 +45,6 @@ def add_portfolio_item(item: PortfolioItem):
         INSERT INTO portfolio (symbol, quantity, avg_cost, sector, asset_class, current, user_id)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (item.symbol, item.quantity, item.avg_cost, item.sector, item.asset_class, item.current, item.user_id))
-    user_id = item.user_id
     conn.commit()
     conn.close()
 
@@ -76,17 +52,17 @@ def add_portfolio_item(item: PortfolioItem):
 
 # Temporary for prototype only
 @app.delete("/portfolio/")
-def clear_portfolio():
+def clear_portfolio(user_id: int):
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM portfolio WHERE user_id = 0")  # remove all rows
-    cursor.execute("DELETE FROM strategy1 WHERE user_id = 0")
+    cursor.execute("DELETE FROM portfolio WHERE user_id = ?", (user_id,))  # remove all rows
     conn.commit()
     conn.close()
     return {"message": "Portfolio cleared"}
 
 @app.get("/portfolio/summary/")
-def get_portfolio_summary():
+def get_portfolio_summary(user_id):
+    print(user_id)
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
@@ -95,12 +71,13 @@ def get_portfolio_summary():
         SELECT 
             asset_class, 
             SUM(quantity * avg_cost) as pre_total_sum,     
-            SUM(quantity * avg_cost) * 100.0 / (SELECT SUM(quantity * avg_cost) FROM portfolio) as pre_asset_allocation,
+            SUM(quantity * avg_cost) * 100.0 / (SELECT SUM(quantity * avg_cost) FROM portfolio WHERE user_id = ?) as pre_asset_allocation,
             SUM(quantity * current) as cur_total_sum,
-            SUM(quantity * current) * 100.0 / (SELECT SUM(quantity * current) FROM portfolio) as cur_asset_allocation
+            SUM(quantity * current) * 100.0 / (SELECT SUM(quantity * current) FROM portfolio WHERE user_id = ?) as cur_asset_allocation
         FROM portfolio
+        WHERE user_id = ?
         GROUP BY asset_class
-    """)
+    """, (user_id, user_id, user_id))
     
     rows = cursor.fetchall()
     conn.close()
@@ -110,14 +87,22 @@ def get_portfolio_summary():
 
 @app.post("/portfolio/strat1/")
 def receive_changes1(changes: Dict[str, float]):
+    user_id = changes['user_id']
     # You now have the dict from frontend
     # Example: {"Equities": 1234.56, "Bonds": 789.01}
     # print(changes)
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM strategy1 WHERE user_id = ?", (user_id,))
+    if user_id == 0:
+        cursor.execute("DELETE FROM strategy WHERE user_id = 0 AND strategy = 1")
+    cursor.execute("SELECT MAX(version) FROM strategy WHERE user_id = ? AND strategy = 1", (user_id,))
+    version = cursor.fetchone()
+    version = version[0]+1 if version and version[0] is not None else 0
+
     for asset_class, change in changes.items():
+        if asset_class == 'user_id':
+            continue
         cursor.execute("""SELECT symbol, quantity, avg_cost, sector, asset_class, current FROM portfolio 
                        WHERE user_id = ? 
                        AND asset_class = ?
@@ -125,26 +110,26 @@ def receive_changes1(changes: Dict[str, float]):
         rows = cursor.fetchall()
         if change > 0:
             cursor.execute("""
-                INSERT INTO strategy1 (user_id, ticker, quantity, action, asset_class, current)
-                VALUES (?, ?, ?, ?, ?, ?)
-                            """, (user_id, rows[-1][0], change/rows[-1][5], 'Buy', asset_class, rows[-1][5]))
+                INSERT INTO strategy (user_id, ticker, quantity, action, asset_class, current, strategy, version)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (user_id, rows[-1][0], change/rows[-1][5], 'Buy', asset_class, rows[-1][5],1,version))
         elif change < 0:
             for row in rows:
                 if change+row[1]*row[5] > 0:
                     cursor.execute("""
-                        INSERT INTO strategy1 (user_id, ticker, quantity, action, asset_class, current)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                                    """, (user_id, row[0], (-change)/row[5], 'Sell', asset_class, row[5]))
+                        INSERT INTO strategy (user_id, ticker, quantity, action, asset_class, current, strategy, version)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                    """, (user_id, row[0], (-change)/row[5], 'Sell', asset_class, row[5],1,version))
                     break
                 change+=row[1]*row[5]
                 cursor.execute("""
-                        INSERT INTO strategy1 (user_id, ticker, quantity, action, asset_class, current)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                                    """, (user_id, row[0], row[1], 'Sell', asset_class, row[5]))
+                        INSERT INTO strategy (user_id, ticker, quantity, action, asset_class, current, strategy, version)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                    """, (user_id, row[0], row[1], 'Sell', asset_class, row[5],1,version))
     
     
 
-    cursor.execute("SELECT ticker, quantity, action, asset_class, current FROM strategy1 WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT ticker, quantity, action, asset_class, current FROM strategy WHERE user_id = ? AND strategy = 1 AND version = ?", (user_id,version))
     cols = [col[0] for col in cursor.description]
     strategy_rows = cursor.fetchall()
     conn.commit()
@@ -155,13 +140,21 @@ def receive_changes1(changes: Dict[str, float]):
 def receive_changes2(changes: Dict[str, float]):
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
+    user_id = changes['user_id']
     
-    cursor.execute("DELETE FROM strategy2 WHERE user_id = ?", (user_id,))
+    if user_id == 0:
+        cursor.execute("DELETE FROM strategy WHERE user_id = ? AND strategy = 2", (user_id,))
+    cursor.execute("SELECT MAX(version) FROM strategy WHERE user_id = ? AND strategy = 2", (user_id,))
+    version = cursor.fetchone()
+    version = version[0]+1 if version and version[0] is not None else 0
     for asset_class, change in changes.items():
+        if asset_class == 'user_id':
+            continue
         if change == 0:
             continue
         cursor.execute("SELECT SUM(quantity * current) FROM portfolio WHERE user_id = ? AND asset_class = ?", (user_id, asset_class))
         total_cost = cursor.fetchone()[0]
+        print(asset_class, total_cost)
         adjustment_percent = abs(change / total_cost)
         cursor.execute("""SELECT symbol, quantity, current FROM portfolio 
                        WHERE user_id = ? 
@@ -170,25 +163,33 @@ def receive_changes2(changes: Dict[str, float]):
         action = "Buy" if change > 0 else "Sell"
         for row in rows:
             cursor.execute("""
-                INSERT INTO strategy2 (user_id, ticker, quantity, action, asset_class, current)
-                VALUES (?, ?, ?, ?, ?, ?)
-                            """,(user_id, row[0], row[1] * adjustment_percent, action, asset_class, row[2]))
+                INSERT INTO strategy (user_id, ticker, quantity, action, asset_class, current, strategy, version)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            """,(user_id, row[0], row[1] * adjustment_percent, action, asset_class, row[2], 2, version))
 
-    cursor.execute("SELECT ticker, quantity, action, asset_class, current FROM strategy2 WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT ticker, quantity, action, asset_class, current FROM strategy WHERE user_id = ? AND version = ? AND strategy = 2", (user_id,version))
     cols = [col[0] for col in cursor.description]
     strategy_rows = cursor.fetchall()
     conn.commit()
     conn.close()
     return [dict(zip(cols, row)) for row in strategy_rows]
 
-
 @app.post("/portfolio/strat3/")
 def receive_changes3(changes: Dict[str, float]):
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
+
+    user_id = changes['user_id']
     
-    cursor.execute("DELETE FROM strategy3 WHERE user_id = ?", (user_id,))
+    if user_id == 0:
+        cursor.execute("DELETE FROM strategy WHERE user_id = ? AND strategy = 3", (user_id,))
+    cursor.execute("SELECT MAX(version) FROM strategy WHERE user_id = ? AND strategy = 3", (user_id,))
+    version = cursor.fetchone()
+    version = version[0]+1 if version and version[0] is not None else 0
+
     for asset_class, change in changes.items():
+        if asset_class == 'user_id':
+            continue
         the_plan_in_strategy_3 = {}
         cursor.execute("""SELECT symbol, quantity, current FROM portfolio 
                        WHERE user_id = ? 
@@ -219,13 +220,22 @@ def receive_changes3(changes: Dict[str, float]):
                     print(row[1])
         
         for key, value in the_plan_in_strategy_3.items():
-            cursor.execute("""INSERT INTO strategy3 (user_id, ticker, quantity, action, asset_class, current)
-                           VALUES (?, ?, ?, ?, ?, ?)
-                           """, (user_id, key, value[0], value[1], asset_class, value[2]))
+            cursor.execute("""INSERT INTO strategy (user_id, ticker, quantity, action, asset_class, current, strategy, version)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                           """, (user_id, key, value[0], value[1], asset_class, value[2], 3, version))
 
-    cursor.execute("SELECT ticker, quantity, action, asset_class, current FROM strategy3 WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT ticker, quantity, action, asset_class, current FROM strategy WHERE user_id = ? AND strategy = 3 AND version = ?", (user_id,version))
     cols = [col[0] for col in cursor.description]
     strategy_rows = cursor.fetchall()
     conn.commit()
     conn.close()
     return [dict(zip(cols, row)) for row in strategy_rows]
+
+@app.get("/portfolio/extract/")
+def extract_existing_data(user_id):
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT symbol, quantity, avg_cost, sector, asset_class FROM portfolio WHERE user_id = ?", (user_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [{'symbol': row[0], 'quantity': row[1], 'avg_cost': row[2], 'sector': row[3], 'asset_class': row[4]} for row in rows]
