@@ -2,8 +2,11 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Dict, List, Optional
 import sqlite3
+from transformers import pipeline
 
 app = FastAPI(title="Portfolio Backend (SQLite3)")
+
+generator = pipeline("text2text-generation", model="google/flan-t5-base")
 
 DATABASE = "portfolio.db"
 
@@ -62,7 +65,7 @@ def clear_portfolio(user_id: int):
 
 @app.get("/portfolio/summary/")
 def get_portfolio_summary(user_id):
-    print(user_id)
+    # print(user_id)
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
@@ -239,3 +242,34 @@ def extract_existing_data(user_id):
     rows = cursor.fetchall()
     conn.close()
     return [{'symbol': row[0], 'quantity': row[1], 'avg_cost': row[2], 'sector': row[3], 'asset_class': row[4]} for row in rows]
+
+@app.post("/portfolio/stratAI")
+def what_if_we_asked_ai(changes: Dict[str, float]):
+    user_id = changes['user_id']
+    prompt = "Task: Suggest specific buy/sell stock actions for this user based on their portfolio.\n\nChanges:\n"
+    for asset_class, change in changes.items():
+        if asset_class == "user_id" or change == 0:
+            continue
+        prompt += f" - {asset_class}: {'+' if change>0 else '-'}${abs(change)}\n"
+    conn = sqlite3.connect(DATABASE)
+    prompt += "\nPortfolio:\n"
+    cursor = conn.cursor()
+    cursor.execute("""SELECT symbol, quantity, asset_class, current FROM portfolio WHERE user_id = ?
+                    """, (user_id,))
+    rows = cursor.fetchall()
+    for row in rows:
+        prompt += f" - {row[0]}: {row[1]} shares @ ${row[3]} ({row[2]})\n"
+    prompt += (
+        "\n\nInstruction: Recommend specific trades for the user. Format as action, quantity, symbol"
+    )
+    print(prompt)
+    conn.close()
+    result = generator(
+        prompt,
+        do_sample=True,           # add randomness
+        top_k=50,                 # limit sampling pool
+        top_p=0.9,                # nucleus sampling
+        repetition_penalty=1.2,   # discourage repeats
+        temperature=0.7           # softer randomness
+    )[0]['generated_text']
+    return {'response': result}

@@ -7,9 +7,9 @@ cursor = conn.cursor()
 cursor.execute("""
                DELETE FROM strategy
 """)
-cursor.execute("""
-               DELETE FROM portfolio
-""")
+# cursor.execute("""
+#                DELETE FROM portfolio
+# """)
 
 # for i in range(128):
 #     cursor.execute("""

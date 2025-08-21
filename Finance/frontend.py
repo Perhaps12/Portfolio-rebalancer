@@ -298,13 +298,13 @@ if st.session_state.has_data:
                     response = requests.post(
                         "http://127.0.0.1:8000/portfolio/strat1/",
                         json=asset_amount_changes
-                    )
+                    )#strategy 1
                     response.raise_for_status()
                     strategy_data = response.json()   # <--- backend’s return
 
                     st.subheader("Suggested Strategy 1")
                     st.dataframe(strategy_data)       # show as table
-
+                    #strategy 2
                     response = requests.post(
                         "http://127.0.0.1:8000/portfolio/strat2/",
                         json=asset_amount_changes
@@ -314,16 +314,27 @@ if st.session_state.has_data:
 
                     st.subheader("Suggested Strategy 2")
                     st.dataframe(strategy_data)       # show as table
-
+                    #strategy 3
                     response = requests.post(
                         "http://127.0.0.1:8000/portfolio/strat3/",
                         json=asset_amount_changes
                     )
                     response.raise_for_status()
                     strategy_data = response.json()   # <--- backend’s return
-
+                    #strategy AI
                     st.subheader("Suggested Strategy 3")
                     st.dataframe(strategy_data)       # show as table
+
+                    response = requests.post(
+                        "http://127.0.0.1:8000/portfolio/stratAI/",
+                        json=asset_amount_changes
+                    )
+                    response.raise_for_status()
+                    strategy_data = response.json()   # <--- backend’s return
+
+                    st.subheader("Suggested Strategy AI")
+                    AI_rambling = strategy_data['response'].replace("$", "\\$")
+                    st.write(AI_rambling) 
 
                 except requests.exceptions.RequestException as e:
                     st.error(f"Error: {e}")
