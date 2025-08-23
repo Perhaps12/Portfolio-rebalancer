@@ -7,11 +7,14 @@ import matplotlib.ticker as mticker
 
 if 'user_id' not in st.session_state:
     st.session_state.user_id = 0
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
 
 with st.sidebar:
     user_input = st.text_input("Enter user id", key="sidebar_input")
     if st.button("Submit", key="sidebar_submit"):
         st.session_state.user_id = user_input
+        st.session_state.logged_in = False
         st.session_state.pop("data", None)
         st.session_state.pop("df", None)
         st.session_state.pop("has_data", None)
@@ -77,7 +80,7 @@ def get_price(ticker):
     except Exception:
         return 0.0  # fallback if price lookup fails
 
-if st.session_state.user_id != 0 and st.session_state.has_data == False:
+if st.session_state.user_id != 0 and st.session_state.has_data == False and not st.session_state.logged_in:
     try:
         API_URL_SUMMARY = f"http://localhost:8000/portfolio/extract/?user_id={st.session_state.user_id}"
         response = requests.get(API_URL_SUMMARY)
@@ -167,6 +170,14 @@ if st.button("Upload File"):
 if st.session_state.has_data:
 
     st.title("Current Portfolio")
+    if st.button("Clear Table"):
+        st.session_state.df = pd.DataFrame()
+        st.session_state.has_data = False
+        st.session_state.summary_data = False
+        st.session_state.backend_has_data = False
+        st.session_state.logged_in = True
+        st.rerun()
+
     #get current price
     st.dataframe(st.session_state.df)
 
