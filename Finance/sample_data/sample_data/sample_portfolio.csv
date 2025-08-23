@@ -1,0 +1,6 @@
+symbol,quantity,avg_cost,sector,asset_class
+AAPL,12,180,Tech,Equity
+MSFT,5,320,Tech,Equity
+TSLA,3,240,Auto,Equity
+AGG,10,100,Bond,Bond
+GLD,4,180,Commodity,Commodity

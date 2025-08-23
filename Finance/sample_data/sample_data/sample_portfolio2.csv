@@ -1,0 +1,6 @@
+symbol,quantity,avg_cost,sector,asset_class
+QQQ,10,4000,Tech,ETF
+SPY,10,4500,US,ETF
+JPM,5,750,Finance,Equity
+TLT,5,450,Bond,Bond
+USL,5,100,Commodity,Commodity
