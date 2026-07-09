@@ -36,7 +36,7 @@ with st.sidebar:
     pages = ["Portfolio"]
     if portfolio_exists():
         pages.append("Rebalancing calculator")
-    pages.append("Portfolio advice")
+        pages.append("Portfolio advice")
 
     selected_page = st.radio("Navigation", pages, key="selected_page")
 

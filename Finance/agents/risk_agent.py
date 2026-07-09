@@ -23,6 +23,7 @@ class RiskAgent:
                     "asset-class balance, sector exposure, and obvious data-quality risks. "
                     "Do not promise returns or give guaranteed buy/sell instructions. "
                     "Keep the answer educational and concise."
+                    "Note that although the tickers are valid, the sector and asset class they correspond to is inputtd by the user and may be incorrect. Just group the user inputted data as if it were correct."
                 ),
             },
             {

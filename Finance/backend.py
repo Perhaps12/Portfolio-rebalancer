@@ -6,7 +6,27 @@ from transformers import pipeline
 
 app = FastAPI(title="Portfolio Backend (SQLite3)")
 
-generator = pipeline("text2text-generation", model="google/flan-t5-base")
+generator = None
+pipeline_error = None
+
+
+def get_generator():
+    global generator, pipeline_error
+
+    if generator is not None:
+        return generator
+
+    try:
+        generator = pipeline("text2text-generation", model="google/flan-t5-base")
+    except Exception as exc:
+        try:
+            generator = pipeline("text-generation", model="google/flan-t5-base")
+        except Exception as fallback_exc:
+            pipeline_error = fallback_exc
+            generator = None
+            raise RuntimeError("AI strategy generation is unavailable") from fallback_exc
+
+    return generator
 
 DATABASE = "portfolio.db"
 
@@ -264,12 +284,20 @@ def what_if_we_asked_ai(changes: Dict[str, float]):
     )
     print(prompt)
     conn.close()
-    result = generator(
-        prompt,
-        do_sample=True,           # add randomness
-        top_k=50,                 # limit sampling pool
-        top_p=0.9,                # nucleus sampling
-        repetition_penalty=1.2,   # discourage repeats
-        temperature=0.7           # softer randomness
-    )[0]['generated_text']
+
+    try:
+        result = get_generator()(
+            prompt,
+            do_sample=True,           # add randomness
+            top_k=50,                 # limit sampling pool
+            top_p=0.9,                # nucleus sampling
+            repetition_penalty=1.2,   # discourage repeats
+            temperature=0.7           # softer randomness
+        )[0]['generated_text']
+    except Exception as exc:
+        message = f"AI strategy generation is unavailable: {exc}"
+        if pipeline_error is not None:
+            message = f"AI strategy generation is unavailable: {pipeline_error}"
+        return {'response': message}
+
     return {'response': result}

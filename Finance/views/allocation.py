@@ -3,8 +3,8 @@ import matplotlib.ticker as mticker
 import requests
 import streamlit as st
 
+from agents.tools import build_desired_allocation_plan
 from services.api import get_ai_strategy, get_portfolio_summary, get_strategy
-from services.validation import valid_percent
 
 
 def render_allocation_page():
@@ -90,22 +90,13 @@ def render_allocation_page():
 
     if st.button("Submit percents", key="allocation_submit"):
         try:
-            for percent in list_user_percents:
-                if not valid_percent(percent):
-                    raise ValueError
-            if sum(float(x) for x in list_user_percents) != 100:
-                raise IndexError
-
-            asset_amount_changes = {}
-            for i in range(len(st.session_state.summary_data)):
-                st.session_state.summary_data[i]["desired_allocation"] = float(list_user_percents[i])
-
-            for item in st.session_state.summary_data:
-                asset_amount_changes[item["asset_class"]] = item["cur_total_cost"] * (
-                    item["desired_allocation"] / item["cur_asset_allocation"] - 1
-                )
-
-            asset_amount_changes["user_id"] = st.session_state.user_id
+            allocation_plan = build_desired_allocation_plan(
+                st.session_state.summary_data,
+                list_user_percents,
+                user_id=st.session_state.user_id,
+            )
+            st.session_state.summary_data = allocation_plan["summary_data"]
+            asset_amount_changes = allocation_plan["asset_amount_changes"]
             st.success("Allocations submitted successfully")
 
             with st.expander("Strategy descriptions"):

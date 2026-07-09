@@ -1,4 +1,8 @@
+import os
+
 import streamlit as st
+
+from agents.supervisor import SupervisorAgent, resolve_ollama_base_url
 
 
 def render_advice_page():
@@ -6,7 +10,12 @@ def render_advice_page():
 
     st.caption("Prototype: supervisor agent + risk specialist agent.")
 
-    model = st.text_input("Model", value="ollama:llama3.1", key="advice_model")
+    # model = st.text_input("Model", value="ollama:llama3.1", key="advice_model")
+    # ollama_base_url = st.text_input(
+    #     "Ollama base URL",
+    #     value=resolve_ollama_base_url(),
+    #     key="advice_ollama_base_url",
+    # )
     user_query = st.text_area("Ask a portfolio question", key="advice_query")
 
     if st.button("Ask", key="advice_ask"):
@@ -21,8 +30,10 @@ def render_advice_page():
         try:
             from agents.supervisor import SupervisorAgent
 
+            os.environ["OLLAMA_BASE_URL"] = ollama_base_url
+
             with st.spinner("The supervisor is consulting the risk specialist..."):
-                supervisor = SupervisorAgent(model=model)
+                supervisor = SupervisorAgent(model=model, base_url=ollama_base_url)
                 result = supervisor.run(user_query, st.session_state.df)
 
             st.subheader("Answer")
