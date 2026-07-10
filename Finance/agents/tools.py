@@ -1,4 +1,7 @@
+import re
+
 import pandas as pd
+import requests
 
 from services.validation import valid_percent
 
@@ -75,6 +78,37 @@ def summarize_portfolio(portfolio_df: pd.DataFrame):
 def summarize_portfolio_with_desired_allocations(portfolio_df: pd.DataFrame, desired_allocations=None):
     """Return a portfolio summary without attaching user allocation targets."""
     return summarize_portfolio(portfolio_df)
+
+
+def search_web(query: str, max_results: int = 5):
+    """Fetch a few search results from DuckDuckGo and return a lightweight summary."""
+    try:
+        response = requests.get(
+            "https://html.duckduckgo.com/html/",
+            params={"q": query},
+            timeout=10,
+        )
+        response.raise_for_status()
+    except Exception:
+        return []
+
+    html = response.text
+    pattern = re.compile(r'<a rel="nofollow" class="result__a" href="(.*?)".*?>(.*?)</a>', re.S)
+    snippet_pattern = re.compile(r'<a class="result__snippet">(.*?)</a>', re.S)
+
+    matches = pattern.findall(html)
+    snippets = [m.group(1).strip() for m in snippet_pattern.finditer(html)]
+
+    results = []
+    for index, (url, title) in enumerate(matches[:max_results]):
+        title = re.sub(r"<.*?>", "", title)
+        title = re.sub(r"\s+", " ", title).strip()
+        snippet = snippets[index] if index < len(snippets) else ""
+        snippet = re.sub(r"<.*?>", "", snippet)
+        snippet = re.sub(r"\s+", " ", snippet).strip()
+        results.append({"title": title, "url": url, "snippet": snippet})
+
+    return results
 
 
 def build_desired_allocation_plan(summary_data, user_percents, user_id=None):

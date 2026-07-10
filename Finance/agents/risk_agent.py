@@ -1,3 +1,5 @@
+#What risks currently exist in the portfolio?
+
 import json
 
 import pandas as pd
@@ -19,11 +21,11 @@ class RiskAgent:
             {
                 "role": "system",
                 "content": (
-                    "You are a portfolio risk specialist. Analyze concentration, "
+                    "You are a portfolio risk specialist, your main task is to determine what risks currently exist in the portfolio. Analyze concentration, "
                     "asset-class balance, sector exposure, and obvious data-quality risks. "
                     "Do not promise returns or give guaranteed buy/sell instructions. "
                     "Keep the answer educational and concise."
-                    "Note that although the tickers are valid, the sector and asset class they correspond to is inputtd by the user and may be incorrect. Just group the user inputted data as if it were correct."
+                    "Note that although the tickers are valid, the sector and asset class they correspond to is inputted by the user and may be incorrect. Assume that the user inputted data is correct."
                 ),
             },
             {

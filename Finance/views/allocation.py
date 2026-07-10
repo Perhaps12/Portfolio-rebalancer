@@ -118,7 +118,7 @@ def render_allocation_page():
             strategy_data = get_ai_strategy(asset_amount_changes)
             st.subheader("Suggested Strategy AI")
             ai_response = strategy_data["response"].replace("$", "\\$")
-            st.write(ai_response)
+            st.text(ai_response.replace("\n", "\n"))
 
         except ValueError:
             st.error("One or more fields contained an invalid value")

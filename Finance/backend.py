@@ -2,12 +2,15 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Dict, List, Optional
 import sqlite3
+
+from agents.allocation_agent import AllocationAgent
 from transformers import pipeline
 
 app = FastAPI(title="Portfolio Backend (SQLite3)")
 
 generator = None
 pipeline_error = None
+allocation_agent = AllocationAgent()
 
 
 def get_generator():
@@ -266,38 +269,75 @@ def extract_existing_data(user_id):
 @app.post("/portfolio/stratAI")
 def what_if_we_asked_ai(changes: Dict[str, float]):
     user_id = changes['user_id']
-    prompt = "Task: Suggest specific buy/sell stock actions for this user based on their portfolio.\n\nChanges:\n"
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute(
+        """SELECT symbol, quantity, avg_cost, sector, asset_class, current FROM portfolio WHERE user_id = ?""",
+        (user_id,),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+
+    portfolio_rows = [
+        {
+            "symbol": row[0],
+            "quantity": row[1],
+            "avg_cost": row[2],
+            "sector": row[3],
+            "asset_class": row[4],
+            "current": row[5],
+        }
+        for row in rows
+    ]
+
+    if not portfolio_rows:
+        return {"response": "No portfolio positions were found for this user."}
+
+    import pandas as pd
+
+    portfolio_df = pd.DataFrame(portfolio_rows)
+    portfolio_df["market_value"] = portfolio_df["quantity"] * portfolio_df["current"]
+
+    current_values = (
+        portfolio_df.groupby("asset_class")["market_value"].sum().to_dict()
+    )
+    desired_values = {}
+    for asset_class, current_value in current_values.items():
+        desired_values[asset_class] = current_value + float(changes.get(asset_class, 0))
+
     for asset_class, change in changes.items():
         if asset_class == "user_id" or change == 0:
             continue
-        prompt += f" - {asset_class}: {'+' if change>0 else '-'}${abs(change)}\n"
-    conn = sqlite3.connect(DATABASE)
-    prompt += "\nPortfolio:\n"
-    cursor = conn.cursor()
-    cursor.execute("""SELECT symbol, quantity, asset_class, current FROM portfolio WHERE user_id = ?
-                    """, (user_id,))
-    rows = cursor.fetchall()
-    for row in rows:
-        prompt += f" - {row[0]}: {row[1]} shares @ ${row[3]} ({row[2]})\n"
-    prompt += (
-        "\n\nInstruction: Recommend specific trades for the user. Format as action, quantity, symbol"
+        if asset_class not in desired_values:
+            desired_values[asset_class] = float(change)
+
+    total_desired_value = sum(desired_values.values())
+    if total_desired_value <= 0:
+        return {"response": "Unable to derive a target allocation from the supplied changes."}
+
+    desired_allocations = {
+        asset_class: round((value / total_desired_value) * 100.0, 2)
+        for asset_class, value in desired_values.items()
+    }
+
+    result = allocation_agent.run(
+        "Rebalance this portfolio to the desired allocation targets",
+        portfolio_df,
+        desired_allocations=desired_allocations,
     )
-    print(prompt)
-    conn.close()
 
-    try:
-        result = get_generator()(
-            prompt,
-            do_sample=True,           # add randomness
-            top_k=50,                 # limit sampling pool
-            top_p=0.9,                # nucleus sampling
-            repetition_penalty=1.2,   # discourage repeats
-            temperature=0.7           # softer randomness
-        )[0]['generated_text']
-    except Exception as exc:
-        message = f"AI strategy generation is unavailable: {exc}"
-        if pipeline_error is not None:
-            message = f"AI strategy generation is unavailable: {pipeline_error}"
-        return {'response': message}
+    if not result.get("trade_plan"):
+        return {"response": "No additional trades are required to reach the target allocation."}
 
-    return {'response': result}
+    lines = []
+    for trade in result["trade_plan"]:
+        ticker = trade.get("ticker") or trade.get("asset_class")
+        if trade.get("estimated_shares") is not None:
+            qty_text = f"{trade['estimated_shares']:.4f} shares"
+        else:
+            qty_text = "a new position"
+        lines.append(
+            f"{trade['action']} {qty_text} of {ticker} for about ${trade['amount_usd']:.2f}"
+        )
+
+    return {"response": "Suggested trades:\n" + "\n".join(lines)}
