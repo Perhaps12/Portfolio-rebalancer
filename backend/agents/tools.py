@@ -6,6 +6,69 @@ import requests
 from backend.services.validation import valid_percent
 
 
+def sanitize_streamlit_math(text: str) -> str:
+    """Clean final AI responses for Streamlit markdown/LaTeX rendering.
+
+    This keeps useful inline math like $P = 0.4V$ while preventing the common
+    rendering bugs caused by stray dollar signs, adjacent math delimiters, or
+    plain numeric values accidentally being treated as math.
+    """
+    if not isinstance(text, str):
+        return text
+
+    def is_math_like(inner: str) -> bool:
+        value = inner.strip()
+        if not value:
+            return False
+
+        if re.fullmatch(r"[\d,\.\s%]+", value):
+            return False
+
+        if re.search(r"[=+\-*/^_\\()\[\]{}]", value):
+            return True
+
+        if re.search(r"\\[A-Za-z]+", value):
+            return True
+
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
+            return False
+
+        return bool(re.search(r"[A-Za-z]", value))
+
+    if "$" not in text:
+        return text
+
+    result = []
+    i = 0
+    while i < len(text):
+        if text[i] != "$":
+            result.append(text[i])
+            i += 1
+            continue
+
+        if i + 1 < len(text) and text[i + 1] == "$":
+            result.append("$$")
+            i += 2
+            continue
+
+        end = text.find("$", i + 1)
+        if end == -1:
+            result.append(r"\$")
+            i += 1
+            continue
+
+        inner = text[i + 1 : end]
+        if is_math_like(inner):
+            result.append(text[i : end + 1])
+        else:
+            result.append(r"\$")
+            result.append(inner)
+            result.append(r"\$")
+        i = end + 1
+
+    return "".join(result)
+
+
 def portfolio_to_records(portfolio_df: pd.DataFrame):
     if portfolio_df is None or portfolio_df.empty:
         return []

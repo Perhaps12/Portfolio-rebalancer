@@ -8,6 +8,7 @@ from backend.agents.explanation_agent import ExplanationAgent
 from backend.agents.research_agent import ResearchAgent
 from backend.agents.risk_agent import RiskAgent
 from backend.agents.simulation_agent import SimulationAgent
+from backend.agents.tools import sanitize_streamlit_math
 
 
 DEFAULT_MODEL = "ollama:llama3.1"
@@ -88,9 +89,11 @@ class SupervisorAgent:
                     "Be clear about uncertainty. Do not provide personalized financial, "
                     "tax, or legal advice as a certainty. "
                     "Format your final answer for Streamlit: use concise markdown, short paragraphs, and simple bullet points. "
-                    "Streamlit renders LaTeX inline in text properly, so you may use $...$ math when helpful. If a formula or value would otherwise run together, add a line break or separate sentence to keep it readable. "
+                    "Streamlit renders LaTeX inline in text properly, so you may use $...$ math when helpful. "
+                    "However, do not place raw dollar signs directly next to words, numbers, or punctuation without clear separation. "
+                    "If a formula or value would otherwise run together, add a line break or separate sentence to keep it readable. "
                     "If you want to show a literal dollar sign, escape it correctly for markdown/LaTeX so it is not mistaken for math delimiters. "
-                    "Use inline math where it adds clarity, but avoid heavy display blocks unless they are truly necessary."
+                    "Use inline math where it adds clarity, but avoid heavy display blocks and avoid unescaped math adjacent to plain text unless it is clearly separated."
                 ),
             },
             {
@@ -113,9 +116,11 @@ class SupervisorAgent:
                 f"Ollama request failed. Check that Ollama is running and the model is installed. Details: {exc}"
             ) from exc
 
+        final_answer = sanitize_streamlit_math(response.choices[0].message.content)
+
         return {
             "supervisor": "Supervisor Agent",
             "model": self.model,
             "specialist_results": specialist_results,
-            "final_answer": response.choices[0].message.content,
+            "final_answer": final_answer,
         }
