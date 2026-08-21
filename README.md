@@ -28,19 +28,40 @@ CSV files should include these headers:
 
 ## How to use
 
-1. Install the required Python dependencies:  
-```bash
-    pip install requirements.txt
+### Initial setup
+
+From the project root, create and activate a virtual environment if needed, then install the dependencies:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 ```
-2. Start the backend in one terminal:
-```bash
-   uvicorn backend.backend:app --reload
-   ```
-3. Start the frontend in a second terminal:
-```bash
-   streamlit run frontend/frontend.py
-   ```
-4. Open the local Streamlit URL, enter a user ID, and begin adding or uploading portfolio data.
+
+### Start the app
+
+The easiest option on Windows is to double-click `start_app.bat` or run it from PowerShell:
+
+```powershell
+.\start_app.bat
+```
+
+This opens two terminal windows and starts both services:
+
+- FastAPI backend at `http://127.0.0.1:8000`
+- Streamlit frontend at the local URL shown in its terminal, usually `http://localhost:8501`
+
+To start the services manually, use two terminals from the project root:
+
+```powershell
+# Terminal 1
+.\.venv\Scripts\python.exe -m uvicorn backend.backend:app --reload
+
+# Terminal 2
+.\.venv\Scripts\python.exe -m streamlit run frontend\frontend.py
+```
+
+Open the Streamlit URL, enter a user ID, and begin adding or uploading portfolio data.
 
 Once a portfolio exists, the app will show the main pages for allocation analysis and portfolio advice.
 

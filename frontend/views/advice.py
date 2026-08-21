@@ -3,6 +3,7 @@ import os
 import streamlit as st
 
 from backend.agents.supervisor import SupervisorAgent, resolve_ollama_base_url
+from backend.agents.tools import sanitize_streamlit_math
 
 
 def render_advice_page():
@@ -31,12 +32,12 @@ def render_advice_page():
                 result = supervisor.run(user_query, st.session_state.df)
 
             st.subheader("Answer")
-            st.write(result["final_answer"])
+            st.write(sanitize_streamlit_math(result["final_answer"]))
 
             with st.expander("Specialist output"):
                 for specialist_result in result["specialist_results"]:
                     st.markdown(f"**{specialist_result['agent']}**")
-                    st.write(specialist_result["answer"])
+                    st.write(sanitize_streamlit_math(specialist_result["answer"]))
                     st.json(specialist_result["portfolio_summary"])
 
         except ModuleNotFoundError:

@@ -69,7 +69,10 @@ class SupervisorAgent:
         for agent in selected_agents:
             agent_name = getattr(agent, "name", agent.__class__.__name__)
             try:
-                specialist_results.append(agent.run(user_query, portfolio_df))
+                specialist_result = agent.run(user_query, portfolio_df)
+                if isinstance(specialist_result, dict) and isinstance(specialist_result.get("answer"), str):
+                    specialist_result["answer"] = sanitize_streamlit_math(specialist_result["answer"])
+                specialist_results.append(specialist_result)
             except Exception as exc:
                 specialist_results.append(
                     {

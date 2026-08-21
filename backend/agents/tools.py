@@ -38,9 +38,18 @@ def sanitize_streamlit_math(text: str) -> str:
     if "$" not in text:
         return text
 
+    # Dollar signs before numbers are currency, including multiple values in
+    # one sentence, rather than opening math delimiters.
+    text = re.sub(r"(?<!\\)\$(?=\s*\d)", r"\\$", text)
+
     result = []
     i = 0
     while i < len(text):
+        if text[i] == "\\" and i + 1 < len(text) and text[i + 1] == "$":
+            result.extend(("\\", "$"))
+            i += 2
+            continue
+
         if text[i] != "$":
             result.append(text[i])
             i += 1
