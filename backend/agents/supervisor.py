@@ -2,6 +2,7 @@ import os
 
 import aisuite as ai
 import pandas as pd
+from dotenv import load_dotenv
 
 from backend.agents.allocation_agent import AllocationAgent
 from backend.agents.explanation_agent import ExplanationAgent
@@ -11,35 +12,35 @@ from backend.agents.simulation_agent import SimulationAgent
 from backend.agents.tools import sanitize_streamlit_math
 
 
-DEFAULT_MODEL = "ollama:llama3.1"
-DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
+DEFAULT_MODEL = "openai:gemini-3.5-flash-lite"
+GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+load_dotenv()
 
 
-def resolve_ollama_base_url(explicit=None):
-    if explicit:
-        return explicit
-
-    for env_name in ("OLLAMA_BASE_URL", "OLLAMA_HOST"):
-        value = os.getenv(env_name, "").strip()
-        if not value:
-            continue
-        if value.startswith("http://") or value.startswith("https://"):
-            return value
-        if value.startswith("0.0.0.0") or value.startswith("::"):
-            return value.replace("0.0.0.0", "127.0.0.1").replace("::", "127.0.0.1")
-        return f"http://{value}"
-
-    return DEFAULT_OLLAMA_BASE_URL
+def resolve_gemini_api_key():
+    return os.getenv("GEMINI_API_KEY", "").strip() or os.getenv("GOOGLE_API_KEY", "").strip()
 
 
 class SupervisorAgent:
     """Routes a user question to specialist agents and prepares a final answer."""
 
-    def __init__(self, model=DEFAULT_MODEL, base_url=None):
+    def __init__(self, model=DEFAULT_MODEL):
         self.model = model
-        self.base_url = resolve_ollama_base_url(base_url)
-        os.environ["OLLAMA_BASE_URL"] = self.base_url
-        self.client = ai.Client()
+        api_key = resolve_gemini_api_key()
+        if not api_key:
+            raise RuntimeError(
+                "Gemini API key is missing. Add GEMINI_API_KEY to the project root .env file."
+            )
+
+        self.client = ai.Client(
+            provider_configs={
+                "openai": {
+                    "api_key": api_key,
+                    "base_url": GEMINI_OPENAI_BASE_URL,
+                }
+            }
+        )
         self.risk_agent = RiskAgent(self.client, self.model)
         self.allocation_agent = AllocationAgent()
         self.research_agent = ResearchAgent(self.client, self.model)
@@ -116,7 +117,7 @@ class SupervisorAgent:
             )
         except Exception as exc:
             raise RuntimeError(
-                f"Ollama request failed. Check that Ollama is running and the model is installed. Details: {exc}"
+                f"Gemini request failed. Check GEMINI_API_KEY and Gemini model access. Details: {exc}"
             ) from exc
 
         final_answer = sanitize_streamlit_math(response.choices[0].message.content)

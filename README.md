@@ -11,6 +11,8 @@ Once a portfolio is oaded, the app shows two main pages:
 
 The tool supports both manual entry and CSV upload. Portfolio data is stored by user ID in SQLite.
 
+AI advice uses Google Gemini through its OpenAI-compatible API. You need a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey). The Gemini free tier is sufficient for normal testing, subject to Google’s current usage limits.
+
 ## Features
 
 - Manual stock entry or CSV upload
@@ -38,18 +40,33 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
+Create a `.env` file in the project root and add your Gemini API key. The repository already includes an empty `.env` template, and it is ignored by Git:
+
+```dotenv
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+`GOOGLE_API_KEY` is also accepted if you prefer that variable name:
+
+```dotenv
+GOOGLE_API_KEY=your-gemini-api-key
+```
+
+The app loads this file automatically when it starts. Do not commit the `.env` file or share its contents.
+
 ### Start the app
 
 The easiest option on Windows is to double-click `start_app.bat` or run it from PowerShell:
 
 ```powershell
-.\start_app.bat
+.\run.bat
 ```
 
 This opens two terminal windows and starts both services:
 
 - FastAPI backend at `http://127.0.0.1:8000`
 - Streamlit frontend at the local URL shown in its terminal, usually `http://localhost:8501`
+- Gemini model: `gemini-3.5-flash-lite`
 
 To start the services manually, use two terminals from the project root:
 

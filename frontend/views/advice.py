@@ -1,8 +1,6 @@
-import os
-
 import streamlit as st
 
-from backend.agents.supervisor import SupervisorAgent, resolve_ollama_base_url
+from backend.agents.supervisor import DEFAULT_MODEL, SupervisorAgent
 from backend.agents.tools import sanitize_streamlit_math
 
 
@@ -11,8 +9,6 @@ def render_advice_page():
 
     st.caption("Prototype: supervisor agent with specialist routing.")
 
-    model = "ollama:llama3.1"
-    ollama_base_url = resolve_ollama_base_url()
     user_query = st.text_area("Ask a portfolio question", key="advice_query")
 
     if st.button("Ask", key="advice_ask"):
@@ -25,10 +21,8 @@ def render_advice_page():
             return
 
         try:
-            os.environ["OLLAMA_BASE_URL"] = ollama_base_url
-
             with st.spinner("The supervisor is consulting the selected specialist agents..."):
-                supervisor = SupervisorAgent(model=model, base_url=ollama_base_url)
+                supervisor = SupervisorAgent(model=DEFAULT_MODEL)
                 result = supervisor.run(user_query, st.session_state.df)
 
             st.subheader("Answer")
