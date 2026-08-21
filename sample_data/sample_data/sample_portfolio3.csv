@@ -1,0 +1,6 @@
+symbol,quantity,avg_cost,sector,asset_class
+XLF,10,4000,Finance,ETF
+GOOG,10,1500,Tech,Equity
+TD,5,750,Finance,Equity
+TLT,10,800,Bond,Bond
+GLD,10,2000,Commodity,Commodity

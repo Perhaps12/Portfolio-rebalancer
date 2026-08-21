@@ -1,26 +1,55 @@
-**Stock portfolio rebalancer**  
-Input / upload your portfolio and recieve an overview of the percentage allocation grouped by asset class (Bond, Equity, Commodity, etc.)  
-Once the allocation summary is displayed, input the target allocation per asset class and recieve 3.1* suggestions on what stocks to buy/sell to achieve the target.  
-*There are 3 actual strategies provided and an AI 'suggestion' however the model used (google flan t5) rarely provides satisfactory responses
+# Stock Portfolio Rebalancer
 
-**Features**  
-- Data stored and retrieved via SQL database
-- Ability to both manually input stocks or upload a csv file
-    - csv file must contain headers of symbol (ticker symbol), quantity (# of stocks purchased), avg_cost (Price per share when it was bought), sector, asset class
-- Storage over multiple sessions through the use of user ids
-    - default user id 0 resets every use and is intended as a very temporary consultation
-    - all other user ids store past data in the database an can be reaccessed of the user logs into the same user id
- 
-**How to use**  
-Download all the files, run "streamlit run frontend.py" to create the frontend webpage on the local host and  
-"uvicorn backend:app --reload" to start the backend server  
-The existing portfolio.db file has some portfolios already stored in it for testing, simply just delete the file and run sqltemp.py in order to effectively clear the existing data  
-Some sample csv files have been provided 
+A lightweight portfolio tool for reviewing allocations, testing target rebalances, and asking portfolio-related questions through a specialist agent workflow.
 
-**Required libraries**
-- fastapi + uvicorn + pydantic
-- transformers + torch
-- streamlit
-- pandas
-- matplotlib
-- yfinance
+## Overview
+
+Once a portfolio is oaded, the app shows two main pages:
+
+- Rebalancing calculator: review current asset allocation and generate target-based trade suggestions.
+- Portfolio advice: ask natural-language questions and receive a response assembled from multiple specialist agents.
+
+The tool supports both manual entry and CSV upload. Portfolio data is stored by user ID in SQLite.
+
+## Features
+
+- Manual stock entry or CSV upload
+- Asset-class allocation analysis
+- Rebalancing suggestions across multiple strategies
+- Natural-language portfolio Q&A routed through specialist agents
+- Persistent storage by user ID
+
+CSV files should include these headers:
+- symbol
+- quantity
+- avg_cost
+- sector
+- asset_class
+
+## How to use
+
+1. Install the required Python dependencies:  
+```bash
+    pip install requirements.txt
+```
+2. Start the backend in one terminal:
+```bash
+   uvicorn backend.backend:app --reload
+   ```
+3. Start the frontend in a second terminal:
+```bash
+   streamlit run frontend/frontend.py
+   ```
+4. Open the local Streamlit URL, enter a user ID, and begin adding or uploading portfolio data.
+
+Once a portfolio exists, the app will show the main pages for allocation analysis and portfolio advice.
+
+The database file at the project root, portfolio.db, already includes sample data for testing. Delete it to reset the database.
+
+Sample CSV files are available under the sample_data/sample_data folder.
+
+## Notes
+
+- User ID 0 is intended for temporary testing and doesn't save any values beyond the current user session
+- Other user IDs persist data across sessions.
+- The advisor page uses a specialist-agent setup, with the supervisor routing questions to the most relevant agent.
