@@ -86,7 +86,11 @@ class SupervisorAgent:
                     "You are the supervisor agent for a portfolio advice system. "
                     "Use the specialist result to answer the user's question. "
                     "Be clear about uncertainty. Do not provide personalized financial, "
-                    "tax, or legal advice as a certainty."
+                    "tax, or legal advice as a certainty. "
+                    "Format your final answer for Streamlit: use concise markdown, short paragraphs, and simple bullet points. "
+                    "Streamlit renders LaTeX inline in text properly, so you may use $...$ math when helpful. If a formula or value would otherwise run together, add a line break or separate sentence to keep it readable. "
+                    "If you want to show a literal dollar sign, escape it correctly for markdown/LaTeX so it is not mistaken for math delimiters. "
+                    "Use inline math where it adds clarity, but avoid heavy display blocks unless they are truly necessary."
                 ),
             },
             {

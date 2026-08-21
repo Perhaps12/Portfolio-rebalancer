@@ -4,32 +4,10 @@ from typing import Dict, List, Optional
 import sqlite3
 
 from backend.agents.allocation_agent import AllocationAgent
-from transformers import pipeline
 
 app = FastAPI(title="Portfolio Backend (SQLite3)")
 
-generator = None
-pipeline_error = None
 allocation_agent = AllocationAgent()
-
-
-def get_generator():
-    global generator, pipeline_error
-
-    if generator is not None:
-        return generator
-
-    try:
-        generator = pipeline("text2text-generation", model="google/flan-t5-base")
-    except Exception as exc:
-        try:
-            generator = pipeline("text-generation", model="google/flan-t5-base")
-        except Exception as fallback_exc:
-            pipeline_error = fallback_exc
-            generator = None
-            raise RuntimeError("AI strategy generation is unavailable") from fallback_exc
-
-    return generator
 
 DATABASE = "portfolio.db"
 
