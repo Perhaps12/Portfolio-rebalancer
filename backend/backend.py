@@ -7,6 +7,16 @@ from backend.agents.allocation_agent import AllocationAgent
 
 app = FastAPI(title="Portfolio Backend (SQLite3)")
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # fine for now; tighten later if you want
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 allocation_agent = AllocationAgent()
 
 DATABASE = "portfolio.db"
